@@ -11,7 +11,7 @@ const state = {
   uploadIds: [],
   uploads: [],
   streaming: false,
-  authMode: 'register',
+  authMode: 'login',
   metrics: null,
   streamController: null,
   streamDraft: '',
@@ -29,6 +29,8 @@ const els = {
   authForm: $('#authForm'),
   authSwitch: $('#authSwitch'),
   authError: $('#authError'),
+  authTitle: $('#authTitle'),
+  authSubtitle: $('#authSubtitle'),
   nameField: $('#nameField'),
   messageList: $('#messageList'),
   composer: $('#composer'),
@@ -71,7 +73,9 @@ boot();
 
 async function boot() {
   bindEvents();
-  applyTheme(localStorage.getItem('wm_theme') || 'system');
+  toggleAuthMode();
+  toggleAuthMode();
+  applyTheme(localStorage.getItem('wm_theme') || 'light');
   try {
     const session = await api('/api/session');
     applySession(session);
@@ -183,9 +187,12 @@ async function onAuth(event) {
 
 function toggleAuthMode() {
   state.authMode = state.authMode === 'register' ? 'login' : 'register';
-  els.nameField.hidden = state.authMode === 'login';
-  els.authForm.querySelector('button').textContent = state.authMode === 'register' ? 'Create Secure Workspace' : 'Sign In';
-  els.authSwitch.textContent = state.authMode === 'register' ? 'Use Existing Account' : 'Create New Workspace';
+  const isRegister = state.authMode === 'register';
+  els.nameField.hidden = !isRegister;
+  els.authTitle.textContent = isRegister ? 'Create your workspace' : 'Welcome back';
+  els.authSubtitle.textContent = isRegister ? 'Set up your WorkMate account' : 'Log in to your account';
+  els.authForm.querySelector('button').textContent = isRegister ? 'Create account' : 'Log in';
+  els.authSwitch.textContent = isRegister ? 'Use existing account' : 'Create one';
   els.authError.textContent = '';
 }
 
@@ -701,8 +708,8 @@ function applyTheme(theme) {
 }
 
 function cycleTheme() {
-  const current = localStorage.getItem('wm_theme') || 'system';
-  const next = current === 'system' ? 'dark' : current === 'dark' ? 'light' : 'system';
+  const current = localStorage.getItem('wm_theme') || 'light';
+  const next = current === 'light' ? 'dark' : current === 'dark' ? 'system' : 'light';
   localStorage.setItem('wm_theme', next);
   applyTheme(next);
   els.settingsTheme.value = next;
