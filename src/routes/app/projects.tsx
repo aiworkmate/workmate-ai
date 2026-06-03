@@ -69,7 +69,7 @@ function ProjectsPage() {
             <div className="mt-3 flex items-center gap-2">
               <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Accent</span>
               {COLORS.map(c => (
-                <button key={c} onClick={() => setColor(c)} className={`h-5 w-5 rounded-full border-2 transition ${color === c ? "border-foreground" : "border-transparent"}`} style={{ background: `oklch(0.7 0.15 ${{violet:300,sky:240,emerald:160,amber:80,rose:20,cyan:200,indigo:280,lime:130}[c as keyof typeof Object]})` }} />
+                <button key={c} onClick={() => setColor(c)} className={`h-5 w-5 rounded-full border-2 transition ${color === c ? "border-foreground" : "border-transparent"}`} style={{ background: `oklch(0.7 0.15 ${HUE[c]})` }} />
               ))}
               <button onClick={create} className="ml-auto rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-glow">Create</button>
             </div>
@@ -89,7 +89,7 @@ function ProjectsPage() {
               <Link key={p.id} to="/app/projects/$id" params={{ id: p.id }} className="group rounded-xl border border-border bg-card p-5 transition hover:border-primary/40">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="h-3 w-3 rounded-full" style={{ background: `oklch(0.7 0.15 ${{violet:300,sky:240,emerald:160,amber:80,rose:20,cyan:200,indigo:280,lime:130}[p.color as keyof typeof Object] ?? 300})` }} />
+                    <span className="h-3 w-3 rounded-full" style={{ background: `oklch(0.7 0.15 ${HUE[p.color] ?? 300})` }} />
                     <StatusPill tone={p.status === "active" ? "success" : p.status === "paused" ? "warning" : "neutral"}>{p.status}</StatusPill>
                   </div>
                   <div className="flex items-center gap-2">
