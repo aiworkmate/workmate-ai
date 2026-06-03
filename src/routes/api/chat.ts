@@ -35,6 +35,10 @@ import {
   formatSummaryForPrompt,
   maybeRefreshSummary,
 } from "@/lib/chat/summarizer.server";
+import { selectAgent } from "@/lib/chat/frontier/select-agent.server";
+import { selectModel } from "@/lib/chat/frontier/select-model.server";
+import { retrieveContext, formatContextPacket } from "@/lib/chat/frontier/retrieve-context.server";
+import { verifyClaim } from "@/lib/chat/frontier/verify-claim.server";
 
 const Body = z.object({
   conversationId: z.string().uuid(),
@@ -76,6 +80,22 @@ const LIVE_REQUIRED_PATTERNS = [
 
 function isLiveRequiredQuery(text: string): boolean {
   return LIVE_REQUIRED_PATTERNS.some((re) => re.test(text));
+}
+
+function inferRiskLevel(text: string, liveRequired: boolean): "low" | "medium" | "high" {
+  if (liveRequired || /(medical|clinical|legal|contract|compliance|fundraising|runway|budget|forecast|dosage|treatment|security)/i.test(text)) {
+    return "high";
+  }
+  if (/(price|launch|strategy|architecture|migration|database|workflow|automation)/i.test(text)) {
+    return "medium";
+  }
+  return "low";
+}
+
+function inferEffortLevel(text: string): "fast" | "standard" | "deep" {
+  if (/(deep|detailed|thorough|complete|comprehensive|master|step by step|full plan)/i.test(text)) return "deep";
+  if (/(quick|brief|short|fast|summary|tldr|tl;dr)/i.test(text)) return "fast";
+  return "standard";
 }
 
 function log(reqId: string, stage: Stage, status: "ok" | "warn" | "error", info: Record<string, unknown> = {}) {
@@ -200,6 +220,15 @@ export const Route = createFileRoute("/api/chat")({
           const liveRequired = decision.needsLiveData && isLiveRequiredQuery(lastUserText);
           const needsLiveData = decision.needsLiveData || aiControl.forceLiveData;
           const needsMemory = decision.needsMemory || aiControl.forceMemory;
+          const frontierRisk = inferRiskLevel(lastUserText, liveRequired);
+          const frontierEffort = inferEffortLevel(lastUserText);
+          const frontierAgent = selectAgent({ userText: lastUserText, risk: frontierRisk });
+          const frontierModelPlan = selectModel({
+            userText: lastUserText,
+            risk: frontierRisk,
+            effort: frontierEffort,
+            forceVerification: liveRequired,
+          });
           log(reqId, "router", "ok", {
             ...decision,
             needsLiveData,
@@ -210,6 +239,14 @@ export const Route = createFileRoute("/api/chat")({
               systemOverride: Boolean(aiControl.systemOverride),
               forceLiveData: aiControl.forceLiveData,
               forceMemory: aiControl.forceMemory,
+            },
+            frontier: {
+              risk: frontierRisk,
+              effort: frontierEffort,
+              primaryAgent: frontierAgent.primary,
+              primaryModel: frontierModelPlan.primaryModel,
+              verificationRequired: frontierModelPlan.requiresVerification,
+              toolsRecommended: frontierModelPlan.requiresTools,
             },
           });
 
@@ -269,6 +306,23 @@ export const Route = createFileRoute("/api/chat")({
             return gracefulStream(reqId, "This conversation is no longer available.", "conv_unavailable");
           }
 
+          const frontierContext = await safe(
+            () => retrieveContext({ userId, conversationId: conv.id, limit: 5 }),
+            {
+              projectSummary: null,
+              memoryItems: [],
+              sourceItems: [],
+              verificationItems: [],
+              taskItems: [],
+              operationalNotes: [],
+            },
+            "frontier_context",
+          );
+          const frontierContextBlock = formatContextPacket(frontierContext);
+          const frontierVerification = frontierModelPlan.requiresVerification
+            ? verifyClaim(lastUserText, frontierContext)
+            : null;
+
           const apiKey = process.env.LOVABLE_API_KEY;
           if (!apiKey) {
             log(reqId, "llm.request", "error", { reason: "missing_api_key" });
@@ -303,11 +357,34 @@ export const Route = createFileRoute("/api/chat")({
           }
 
           const contextBlocks: string[] = [
-            aiControl.systemOverride || "You are AI WorkMate, a secure enterprise AI assistant. Be precise, structured, and professional. Use markdown. Never reveal chain-of-thought or internal tooling. Use available memory only when relevant. Cite live-data sources when provided. If live web context is provided, treat it as current data and do not claim you lack live access. Adapt answer length and style to the user's learned preferences. Provide only the final answer.",
+            aiControl.systemOverride || "You are AI WorkMate, a secure enterprise AI operating system. Be precise, structured, grounded, and operationally useful. Think in projects, tasks, memory, tools, and verification. Never reveal chain-of-thought or internal tooling. Distinguish clearly between memory, retrieved evidence, assumptions, and verified facts. Use available memory only when relevant. Cite live-data sources when provided. If live web context is provided, treat it as current data and do not claim you lack live access. Adapt answer length and style to the user's learned preferences. Provide only the final answer.",
           ];
+          contextBlocks.push(`Frontier routing plan:
+Primary agent: ${frontierAgent.primary}
+Supporting agents: ${frontierAgent.supporting.join(", ") || "none"}
+Primary model: ${frontierModelPlan.primaryModel}
+Fallback models: ${frontierModelPlan.fallbackModels.join(", ") || "none"}
+Verification required: ${frontierModelPlan.requiresVerification ? "yes" : "no"}
+Tools recommended: ${frontierModelPlan.requiresTools ? "yes" : "no"}`);
           if (adaptiveProfile) contextBlocks.push(formatAdaptiveProfileForPrompt(adaptiveProfile));
+          if (summaryBlock) contextBlocks.push(summaryBlock);
           const memBlock = formatMemoriesForPrompt(memories);
           if (memBlock) contextBlocks.push(memBlock);
+          if (frontierContextBlock) contextBlocks.push(`Structured operating context:
+${frontierContextBlock}`);
+          if (frontierVerification) {
+            const evidence = frontierVerification.evidence.length ? `
+Evidence:
+- ${frontierVerification.evidence.join("
+- ")}` : "";
+            const gaps = frontierVerification.gaps.length ? `
+Gaps:
+- ${frontierVerification.gaps.join("
+- ")}` : "";
+            contextBlocks.push(`Verification preflight for the user's latest request:
+Verdict: ${frontierVerification.verdict}
+Confidence: ${frontierVerification.confidence}${evidence}${gaps}`);
+          }
           if (live) {
             const srcs = live.sources.length ? `\nSources: ${live.sources.join(", ")}` : "";
             contextBlocks.push(`Live web context for the user's latest question (use it to ground your answer; cite the sources):\n${live.summary}${srcs}`);
@@ -328,9 +405,11 @@ export const Route = createFileRoute("/api/chat")({
             try {
               const result = await requestChatCompletion({
                 apiKey,
-                messages: [systemPrompt, ...parsed.messages],
+                messages: [systemPrompt, ...trimmed.messages],
                 signal: controller.signal,
-                preferredModels: aiControl.modelOverride ? [aiControl.modelOverride] : [],
+                preferredModels: aiControl.modelOverride
+                  ? [aiControl.modelOverride, frontierModelPlan.primaryModel, ...frontierModelPlan.fallbackModels]
+                  : [frontierModelPlan.primaryModel, ...frontierModelPlan.fallbackModels],
               });
               upstream = result.response;
               model = result.model;
@@ -349,6 +428,9 @@ export const Route = createFileRoute("/api/chat")({
               liveInjected: Boolean(live),
               liveUsed: !!live,
               memUsed: memories.length,
+              primaryAgent: frontierAgent.primary,
+              verificationRequired: frontierModelPlan.requiresVerification,
+              toolsRecommended: frontierModelPlan.requiresTools,
             });
           } catch (err) {
             log(reqId, "llm.request", "error", { model, err: String(err), ms: Date.now() - llmStart });
@@ -385,6 +467,17 @@ export const Route = createFileRoute("/api/chat")({
           const stream = new ReadableStream({
             async start(controller) {
               send(controller, { type: "state", phase: "thinking" });
+              send(controller, {
+                type: "route",
+                primaryAgent: frontierAgent.primary,
+                supportingAgents: frontierAgent.supporting,
+                primaryModel: frontierModelPlan.primaryModel,
+                fallbackModels: frontierModelPlan.fallbackModels,
+                verificationRequired: frontierModelPlan.requiresVerification,
+                toolsRecommended: frontierModelPlan.requiresTools,
+                risk: frontierRisk,
+                effort: frontierEffort,
+              });
               if (needsLiveData) {
                 send(controller, {
                   type: "tool",
@@ -397,6 +490,15 @@ export const Route = createFileRoute("/api/chat")({
                 if (live?.sources.length) send(controller, { type: "sources", sources: live.sources, provider: live.provider });
               }
               if (memories.length) send(controller, { type: "memory", used: memories.length, ids: memoryIds });
+              if (frontierVerification) {
+                send(controller, {
+                  type: "verification",
+                  verdict: frontierVerification.verdict,
+                  confidence: frontierVerification.confidence,
+                  evidence: frontierVerification.evidence,
+                  gaps: frontierVerification.gaps,
+                });
+              }
               send(controller, { type: "state", phase: "generating" });
 
               let progressiveSources: string[] = [];
@@ -512,6 +614,12 @@ export const Route = createFileRoute("/api/chat")({
                   const candidates = extractMemoryCandidates(lastUserText, assembled);
                   if (candidates.length) void persistMemoryCandidates(userId, candidates).catch(() => {});
                 }
+                maybeRefreshSummary({
+                  conversationId: convId,
+                  apiKey,
+                  messages: parsed.messages,
+                  existingSummary: storedSummary,
+                });
                 send(controller, {
                   type: "done",
                   messageId: assistantMessageId,
@@ -520,6 +628,11 @@ export const Route = createFileRoute("/api/chat")({
                   liveRequired,
                   liveUsed: !!live || progressiveSources.length > 0,
                   sources: live?.sources ?? progressiveSources,
+                  primaryAgent: frontierAgent.primary,
+                  supportingAgents: frontierAgent.supporting,
+                  primaryModel: model,
+                  routedModel: frontierModelPlan.primaryModel,
+                  verification: frontierVerification,
                   ttfbMs: firstTokenAt ? firstTokenAt - t0 : null,
                   totalMs,
                 });
@@ -533,6 +646,8 @@ export const Route = createFileRoute("/api/chat")({
                   memoryCount: memories.length,
                   fallbackUsed: !success,
                   errorStage,
+                  primaryAgent: frontierAgent.primary,
+                  primaryModel: frontierModelPlan.primaryModel,
                 });
                 try { controller.enqueue(encoder.encode("data: [DONE]\n\n")); } catch { /* closed */ }
                 log(reqId, "llm.stream", "ok", { closed: true, totalMs });
@@ -549,6 +664,8 @@ export const Route = createFileRoute("/api/chat")({
               "X-Chat-Intent": decision.intent,
               "X-Chat-Live": needsLiveData ? "1" : "0",
               "X-Chat-Memory": String(memories.length),
+              "X-Chat-Agent": frontierAgent.primary,
+              "X-Chat-Model": model,
             },
           });
         } catch (err) {
