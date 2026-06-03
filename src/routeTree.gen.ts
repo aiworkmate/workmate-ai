@@ -15,16 +15,23 @@ import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppWorkflowsRouteImport } from './routes/app/workflows'
+import { Route as AppVerificationRouteImport } from './routes/app/verification'
 import { Route as AppUploadsRouteImport } from './routes/app/uploads'
+import { Route as AppToolsRouteImport } from './routes/app/tools'
+import { Route as AppSourcesRouteImport } from './routes/app/sources'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
+import { Route as AppProjectsRouteImport } from './routes/app/projects'
 import { Route as AppMemoryRouteImport } from './routes/app/memory'
 import { Route as AppMedicalRouteImport } from './routes/app/medical'
+import { Route as AppHealthRouteImport } from './routes/app/health'
 import { Route as AppChatRouteImport } from './routes/app/chat'
 import { Route as AppAuditRouteImport } from './routes/app/audit'
 import { Route as AppAnalyticsRouteImport } from './routes/app/analytics'
+import { Route as AppAgentsRouteImport } from './routes/app/agents'
 import { Route as AppAdminRouteImport } from './routes/app/admin'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AppWorkflowsIdRouteImport } from './routes/app/workflows.$id'
+import { Route as AppProjectsIdRouteImport } from './routes/app/projects.$id'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -56,14 +63,34 @@ const AppWorkflowsRoute = AppWorkflowsRouteImport.update({
   path: '/workflows',
   getParentRoute: () => AppRoute,
 } as any)
+const AppVerificationRoute = AppVerificationRouteImport.update({
+  id: '/verification',
+  path: '/verification',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppUploadsRoute = AppUploadsRouteImport.update({
   id: '/uploads',
   path: '/uploads',
   getParentRoute: () => AppRoute,
 } as any)
+const AppToolsRoute = AppToolsRouteImport.update({
+  id: '/tools',
+  path: '/tools',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSourcesRoute = AppSourcesRouteImport.update({
+  id: '/sources',
+  path: '/sources',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProjectsRoute = AppProjectsRouteImport.update({
+  id: '/projects',
+  path: '/projects',
   getParentRoute: () => AppRoute,
 } as any)
 const AppMemoryRoute = AppMemoryRouteImport.update({
@@ -74,6 +101,11 @@ const AppMemoryRoute = AppMemoryRouteImport.update({
 const AppMedicalRoute = AppMedicalRouteImport.update({
   id: '/medical',
   path: '/medical',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppHealthRoute = AppHealthRouteImport.update({
+  id: '/health',
+  path: '/health',
   getParentRoute: () => AppRoute,
 } as any)
 const AppChatRoute = AppChatRouteImport.update({
@@ -91,6 +123,11 @@ const AppAnalyticsRoute = AppAnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAgentsRoute = AppAgentsRouteImport.update({
+  id: '/agents',
+  path: '/agents',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAdminRoute = AppAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -106,6 +143,11 @@ const AppWorkflowsIdRoute = AppWorkflowsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AppWorkflowsRoute,
 } as any)
+const AppProjectsIdRoute = AppProjectsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AppProjectsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -114,15 +156,22 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/api/chat': typeof ApiChatRoute
   '/app/admin': typeof AppAdminRoute
+  '/app/agents': typeof AppAgentsRoute
   '/app/analytics': typeof AppAnalyticsRoute
   '/app/audit': typeof AppAuditRoute
   '/app/chat': typeof AppChatRoute
+  '/app/health': typeof AppHealthRoute
   '/app/medical': typeof AppMedicalRoute
   '/app/memory': typeof AppMemoryRoute
+  '/app/projects': typeof AppProjectsRouteWithChildren
   '/app/settings': typeof AppSettingsRoute
+  '/app/sources': typeof AppSourcesRoute
+  '/app/tools': typeof AppToolsRoute
   '/app/uploads': typeof AppUploadsRoute
+  '/app/verification': typeof AppVerificationRoute
   '/app/workflows': typeof AppWorkflowsRouteWithChildren
   '/app/': typeof AppIndexRoute
+  '/app/projects/$id': typeof AppProjectsIdRoute
   '/app/workflows/$id': typeof AppWorkflowsIdRoute
 }
 export interface FileRoutesByTo {
@@ -131,15 +180,22 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/api/chat': typeof ApiChatRoute
   '/app/admin': typeof AppAdminRoute
+  '/app/agents': typeof AppAgentsRoute
   '/app/analytics': typeof AppAnalyticsRoute
   '/app/audit': typeof AppAuditRoute
   '/app/chat': typeof AppChatRoute
+  '/app/health': typeof AppHealthRoute
   '/app/medical': typeof AppMedicalRoute
   '/app/memory': typeof AppMemoryRoute
+  '/app/projects': typeof AppProjectsRouteWithChildren
   '/app/settings': typeof AppSettingsRoute
+  '/app/sources': typeof AppSourcesRoute
+  '/app/tools': typeof AppToolsRoute
   '/app/uploads': typeof AppUploadsRoute
+  '/app/verification': typeof AppVerificationRoute
   '/app/workflows': typeof AppWorkflowsRouteWithChildren
   '/app': typeof AppIndexRoute
+  '/app/projects/$id': typeof AppProjectsIdRoute
   '/app/workflows/$id': typeof AppWorkflowsIdRoute
 }
 export interface FileRoutesById {
@@ -150,15 +206,22 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/api/chat': typeof ApiChatRoute
   '/app/admin': typeof AppAdminRoute
+  '/app/agents': typeof AppAgentsRoute
   '/app/analytics': typeof AppAnalyticsRoute
   '/app/audit': typeof AppAuditRoute
   '/app/chat': typeof AppChatRoute
+  '/app/health': typeof AppHealthRoute
   '/app/medical': typeof AppMedicalRoute
   '/app/memory': typeof AppMemoryRoute
+  '/app/projects': typeof AppProjectsRouteWithChildren
   '/app/settings': typeof AppSettingsRoute
+  '/app/sources': typeof AppSourcesRoute
+  '/app/tools': typeof AppToolsRoute
   '/app/uploads': typeof AppUploadsRoute
+  '/app/verification': typeof AppVerificationRoute
   '/app/workflows': typeof AppWorkflowsRouteWithChildren
   '/app/': typeof AppIndexRoute
+  '/app/projects/$id': typeof AppProjectsIdRoute
   '/app/workflows/$id': typeof AppWorkflowsIdRoute
 }
 export interface FileRouteTypes {
@@ -170,15 +233,22 @@ export interface FileRouteTypes {
     | '/signup'
     | '/api/chat'
     | '/app/admin'
+    | '/app/agents'
     | '/app/analytics'
     | '/app/audit'
     | '/app/chat'
+    | '/app/health'
     | '/app/medical'
     | '/app/memory'
+    | '/app/projects'
     | '/app/settings'
+    | '/app/sources'
+    | '/app/tools'
     | '/app/uploads'
+    | '/app/verification'
     | '/app/workflows'
     | '/app/'
+    | '/app/projects/$id'
     | '/app/workflows/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -187,15 +257,22 @@ export interface FileRouteTypes {
     | '/signup'
     | '/api/chat'
     | '/app/admin'
+    | '/app/agents'
     | '/app/analytics'
     | '/app/audit'
     | '/app/chat'
+    | '/app/health'
     | '/app/medical'
     | '/app/memory'
+    | '/app/projects'
     | '/app/settings'
+    | '/app/sources'
+    | '/app/tools'
     | '/app/uploads'
+    | '/app/verification'
     | '/app/workflows'
     | '/app'
+    | '/app/projects/$id'
     | '/app/workflows/$id'
   id:
     | '__root__'
@@ -205,15 +282,22 @@ export interface FileRouteTypes {
     | '/signup'
     | '/api/chat'
     | '/app/admin'
+    | '/app/agents'
     | '/app/analytics'
     | '/app/audit'
     | '/app/chat'
+    | '/app/health'
     | '/app/medical'
     | '/app/memory'
+    | '/app/projects'
     | '/app/settings'
+    | '/app/sources'
+    | '/app/tools'
     | '/app/uploads'
+    | '/app/verification'
     | '/app/workflows'
     | '/app/'
+    | '/app/projects/$id'
     | '/app/workflows/$id'
   fileRoutesById: FileRoutesById
 }
@@ -269,6 +353,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWorkflowsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/verification': {
+      id: '/app/verification'
+      path: '/verification'
+      fullPath: '/app/verification'
+      preLoaderRoute: typeof AppVerificationRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/uploads': {
       id: '/app/uploads'
       path: '/uploads'
@@ -276,11 +367,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppUploadsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/tools': {
+      id: '/app/tools'
+      path: '/tools'
+      fullPath: '/app/tools'
+      preLoaderRoute: typeof AppToolsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/sources': {
+      id: '/app/sources'
+      path: '/sources'
+      fullPath: '/app/sources'
+      preLoaderRoute: typeof AppSourcesRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/settings': {
       id: '/app/settings'
       path: '/settings'
       fullPath: '/app/settings'
       preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/projects': {
+      id: '/app/projects'
+      path: '/projects'
+      fullPath: '/app/projects'
+      preLoaderRoute: typeof AppProjectsRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/memory': {
@@ -295,6 +407,13 @@ declare module '@tanstack/react-router' {
       path: '/medical'
       fullPath: '/app/medical'
       preLoaderRoute: typeof AppMedicalRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/health': {
+      id: '/app/health'
+      path: '/health'
+      fullPath: '/app/health'
+      preLoaderRoute: typeof AppHealthRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/chat': {
@@ -318,6 +437,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAnalyticsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/agents': {
+      id: '/app/agents'
+      path: '/agents'
+      fullPath: '/app/agents'
+      preLoaderRoute: typeof AppAgentsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/admin': {
       id: '/app/admin'
       path: '/admin'
@@ -339,8 +465,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWorkflowsIdRouteImport
       parentRoute: typeof AppWorkflowsRoute
     }
+    '/app/projects/$id': {
+      id: '/app/projects/$id'
+      path: '/$id'
+      fullPath: '/app/projects/$id'
+      preLoaderRoute: typeof AppProjectsIdRouteImport
+      parentRoute: typeof AppProjectsRoute
+    }
   }
 }
+
+interface AppProjectsRouteChildren {
+  AppProjectsIdRoute: typeof AppProjectsIdRoute
+}
+
+const AppProjectsRouteChildren: AppProjectsRouteChildren = {
+  AppProjectsIdRoute: AppProjectsIdRoute,
+}
+
+const AppProjectsRouteWithChildren = AppProjectsRoute._addFileChildren(
+  AppProjectsRouteChildren,
+)
 
 interface AppWorkflowsRouteChildren {
   AppWorkflowsIdRoute: typeof AppWorkflowsIdRoute
@@ -356,26 +501,38 @@ const AppWorkflowsRouteWithChildren = AppWorkflowsRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
+  AppAgentsRoute: typeof AppAgentsRoute
   AppAnalyticsRoute: typeof AppAnalyticsRoute
   AppAuditRoute: typeof AppAuditRoute
   AppChatRoute: typeof AppChatRoute
+  AppHealthRoute: typeof AppHealthRoute
   AppMedicalRoute: typeof AppMedicalRoute
   AppMemoryRoute: typeof AppMemoryRoute
+  AppProjectsRoute: typeof AppProjectsRouteWithChildren
   AppSettingsRoute: typeof AppSettingsRoute
+  AppSourcesRoute: typeof AppSourcesRoute
+  AppToolsRoute: typeof AppToolsRoute
   AppUploadsRoute: typeof AppUploadsRoute
+  AppVerificationRoute: typeof AppVerificationRoute
   AppWorkflowsRoute: typeof AppWorkflowsRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRoute,
+  AppAgentsRoute: AppAgentsRoute,
   AppAnalyticsRoute: AppAnalyticsRoute,
   AppAuditRoute: AppAuditRoute,
   AppChatRoute: AppChatRoute,
+  AppHealthRoute: AppHealthRoute,
   AppMedicalRoute: AppMedicalRoute,
   AppMemoryRoute: AppMemoryRoute,
+  AppProjectsRoute: AppProjectsRouteWithChildren,
   AppSettingsRoute: AppSettingsRoute,
+  AppSourcesRoute: AppSourcesRoute,
+  AppToolsRoute: AppToolsRoute,
   AppUploadsRoute: AppUploadsRoute,
+  AppVerificationRoute: AppVerificationRoute,
   AppWorkflowsRoute: AppWorkflowsRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
 }
