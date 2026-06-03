@@ -1,7 +1,8 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  MessageSquare, Brain, FileText, Workflow, BarChart3,
-  Shield, Settings, Stethoscope, LayoutDashboard, Plus, ScrollText,
+  MessageSquare, Brain, FileText, BarChart3,
+  Shield, Settings, LayoutDashboard, Plus, ScrollText,
+  FolderKanban, Bot, Globe, Plug, Activity, ShieldCheck, Stethoscope,
 } from "lucide-react";
 
 const groups = [
@@ -9,10 +10,20 @@ const groups = [
     label: "Workspace",
     items: [
       { to: "/app", label: "Overview", icon: LayoutDashboard, exact: true },
-      { to: "/app/chat", label: "Chat", icon: MessageSquare },
+      { to: "/app/chat", label: "Chats", icon: MessageSquare },
+      { to: "/app/projects", label: "Projects", icon: FolderKanban },
+      { to: "/app/agents", label: "Agents", icon: Bot },
       { to: "/app/memory", label: "Memory", icon: Brain },
-      { to: "/app/uploads", label: "Documents", icon: FileText },
-      { to: "/app/workflows", label: "Workflows", icon: Workflow },
+      { to: "/app/uploads", label: "Files", icon: FileText },
+    ],
+  },
+  {
+    label: "Intelligence",
+    items: [
+      { to: "/app/sources", label: "Sources", icon: Globe },
+      { to: "/app/verification", label: "Verification", icon: ShieldCheck },
+      { to: "/app/tools", label: "Tool connections", icon: Plug },
+      { to: "/app/health", label: "System health", icon: Activity },
     ],
   },
   {
@@ -44,8 +55,8 @@ export function AppSidebar() {
           <span className="font-display text-xs font-bold text-primary-foreground">W</span>
         </div>
         <div className="min-w-0">
-          <div className="truncate font-display text-sm font-semibold leading-none">AI WorkMate</div>
-          <div className="mt-0.5 truncate font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Acme · Production</div>
+          <div className="truncate font-display text-sm font-semibold leading-none">WorkMate X</div>
+          <div className="mt-0.5 truncate font-mono text-[10px] uppercase tracking-wider text-muted-foreground">AI operating system</div>
         </div>
       </div>
 
@@ -92,7 +103,7 @@ export function AppSidebar() {
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success" />
             <span className="font-medium">All systems nominal</span>
           </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">Audit log streaming · RLS active</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">Memory · Routing · Verification</p>
         </div>
       </div>
     </aside>
