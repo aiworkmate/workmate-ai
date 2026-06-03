@@ -49,6 +49,67 @@ export interface AuditEvent {
 
 export interface Paginated<T> { items: T[]; total: number; page: number; page_size: number; }
 
+export interface BrainChatMessage { role: "system" | "user" | "assistant"; content: string; }
+export interface BrainChatRequest {
+  conversationId: string;
+  projectId?: string | null;
+  mode?: "general" | "research" | "coding" | "planning" | "business" | "medical";
+  enableMemory?: boolean;
+  enableLive?: boolean;
+  preferredAgent?: string | null;
+  preferredEffort?: "fast" | "standard" | "deep";
+  messages: BrainChatMessage[];
+}
+export interface BrainContextRequest {
+  conversationId: string;
+  projectId?: string | null;
+  query?: string;
+  limit?: number;
+}
+export interface BrainVerificationRequest {
+  claim: string;
+  conversationId?: string | null;
+  projectId?: string | null;
+}
+export interface BrainWorkflowPlanRequest {
+  goal: string;
+  projectId?: string | null;
+  risk?: "low" | "medium" | "high";
+  effort?: "fast" | "standard" | "deep";
+}
+export interface BrainRouteEvent {
+  type: "route";
+  primaryAgent: string;
+  supportingAgents: string[];
+  primaryModel: string;
+  fallbackModels: string[];
+  verificationRequired: boolean;
+  toolsRecommended: boolean;
+  risk: "low" | "medium" | "high";
+  effort: "fast" | "standard" | "deep";
+}
+export interface BrainVerificationEvent {
+  type: "verification";
+  verdict: "supported" | "partially_supported" | "unverified" | "contradicted";
+  confidence: number;
+  evidence: string[];
+  gaps: string[];
+}
+export interface BrainDoneEvent {
+  type: "done";
+  messageId: string | null;
+  intent: string;
+  liveRequired: boolean;
+  liveUsed: boolean;
+  sources: string[];
+  primaryAgent?: string;
+  supportingAgents?: string[];
+  primaryModel?: string;
+  routedModel?: string;
+  ttfbMs?: number | null;
+  totalMs: number;
+}
+
 // ----- Endpoints -----
 export const endpoints = {
   // Tenancy
@@ -108,5 +169,14 @@ export const endpoints = {
   // Analytics
   analytics: {
     overview: () => api.get<{ conversations: number; messages: number; tokens: number; users_active: number; series: { day: string; messages: number }[] }>("/v1/analytics/overview"),
+  },
+
+  // GitHub-first brain endpoints: Base44 acts as shell, external runtime acts as brain.
+  brain: {
+    chat: (input: BrainChatRequest) => api.post("/v1/brain/chat", input),
+    context: (input: BrainContextRequest) => api.post("/v1/brain/context", input),
+    verify: (input: BrainVerificationRequest) => api.post<BrainVerificationEvent>("/v1/brain/verify", input),
+    workflowPlan: (input: BrainWorkflowPlanRequest) => api.post("/v1/brain/workflows/plan", input),
+    health: () => api.get<{ status: "ok" | "degraded" | "down"; version?: string; services?: Record<string, string> }>("/v1/brain/health"),
   },
 };
