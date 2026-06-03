@@ -24,6 +24,13 @@ interface MessageBubbleProps {
   statusLabel?: string;
   tools?: ToolEvent[];
   sources?: string[];
+  brainMeta?: {
+    agent?: string;
+    model?: string;
+    verificationVerdict?: string | null;
+    verificationConfidence?: number | null;
+    runtimeMode?: "external" | "internal";
+  };
   feedback?: "up" | "down" | null;
   onFeedback?: (helpful: boolean) => void;
   onCopy?: () => void;
@@ -37,7 +44,7 @@ interface MessageBubbleProps {
  * user uses a soft gradient pill. Generous spacing, smooth entrance.
  */
 export function MessageBubble({
-  message, streaming, statusLabel, tools, sources, feedback, onFeedback,
+  message, streaming, statusLabel, tools, sources, brainMeta, feedback, onFeedback,
   onCopy, onRetry, onEdit, onDelete,
 }: MessageBubbleProps) {
   const isUser = message.role === "user";
@@ -111,6 +118,32 @@ export function MessageBubble({
             {message.attachments && message.attachments.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
                 {message.attachments.map((a) => <MessageAttachmentChip key={a.id} attachment={a} />)}
+              </div>
+            )}
+
+            {brainMeta && (brainMeta.agent || brainMeta.model || brainMeta.verificationVerdict || brainMeta.runtimeMode) && (
+              <div className="mt-3 flex flex-wrap gap-1.5 animate-in fade-in duration-200">
+                {brainMeta.agent && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface/70 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                    <Brain className="h-3 w-3 text-primary-glow" /> {brainMeta.agent}
+                  </span>
+                )}
+                {brainMeta.model && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface/70 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                    <Sparkles className="h-3 w-3 text-primary-glow" /> {brainMeta.model}
+                  </span>
+                )}
+                {brainMeta.verificationVerdict && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface/70 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                    <Globe className="h-3 w-3 text-success" /> verify: {brainMeta.verificationVerdict}
+                    {typeof brainMeta.verificationConfidence === "number" ? ` ${Math.round(brainMeta.verificationConfidence * 100)}%` : ""}
+                  </span>
+                )}
+                {brainMeta.runtimeMode && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface/70 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                    <Wrench className="h-3 w-3" /> brain: {brainMeta.runtimeMode}
+                  </span>
+                )}
               </div>
             )}
 
