@@ -1,0 +1,43 @@
+name: frontier-brain-checks
+
+on:
+  push:
+    paths:
+      - 'brain/**'
+      - 'evals/**'
+      - '.github/workflows/frontier-brain-checks.yml'
+  pull_request:
+    paths:
+      - 'brain/**'
+      - 'evals/**'
+      - '.github/workflows/frontier-brain-checks.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate JSON assets
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          files = [
+            'brain/schemas/memory-record.schema.json',
+            'brain/schemas/task-run.schema.json',
+            'evals/routing/router-golden-set.json',
+            'evals/memory/memory-retrieval-golden-set.json',
+            'evals/verification/claim-verification-set.json',
+          ]
+          for f in files:
+              json.load(open(f))
+              print('validated', f)
+          prompt_files = list(Path('brain/prompts').rglob('*.md'))
+          assert len(prompt_files) >= 5, 'expected prompt registry files'
+          print('prompt_files', len(prompt_files))
+          PY
+      - name: Summarize starter pack
+        run: |
+          echo 'Frontier brain starter pack present.'
+          find brain -maxdepth 3 -type f | sort
+          find evals -maxdepth 3 -type f | sort

@@ -1,0 +1,6 @@
+[
+  {"input": "Review my architecture for multi-agent routing", "expected_agent": "coding"},
+  {"input": "Compare the top three AI note-taking tools with citations", "expected_agent": "research"},
+  {"input": "Help me plan a product launch for next month", "expected_agent": "planning"},
+  {"input": "Refine our pricing and go-to-market strategy", "expected_agent": "business"}
+]

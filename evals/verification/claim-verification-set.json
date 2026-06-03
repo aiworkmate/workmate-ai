@@ -1,0 +1,4 @@
+[
+  {"claim": "The system should always distinguish memory from verified facts.", "expected_verdict": "supported"},
+  {"claim": "Tool failures can be silently ignored.", "expected_verdict": "contradicted"}
+]

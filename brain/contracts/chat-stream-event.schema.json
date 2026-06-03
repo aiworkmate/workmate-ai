@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BrainChatStreamEvent",
+  "type": "object",
+  "required": ["type"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": ["state", "route", "memory", "tool", "sources", "verification", "token", "done"]
+    },
+    "phase": { "type": "string" },
+    "primaryAgent": { "type": "string" },
+    "supportingAgents": { "type": "array", "items": { "type": "string" } },
+    "primaryModel": { "type": "string" },
+    "fallbackModels": { "type": "array", "items": { "type": "string" } },
+    "verificationRequired": { "type": "boolean" },
+    "toolsRecommended": { "type": "boolean" },
+    "risk": { "type": "string", "enum": ["low", "medium", "high"] },
+    "effort": { "type": "string", "enum": ["fast", "standard", "deep"] },
+    "used": { "type": "number" },
+    "ids": { "type": "array", "items": { "type": "string" } },
+    "name": { "type": "string" },
+    "status": { "type": "string" },
+    "sources": { "type": "array", "items": { "type": "string" } },
+    "provider": { "type": ["string", "null"] },
+    "required": { "type": "boolean" },
+    "verdict": { "type": "string", "enum": ["supported", "partially_supported", "unverified", "contradicted"] },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "evidence": { "type": "array", "items": { "type": "string" } },
+    "gaps": { "type": "array", "items": { "type": "string" } },
+    "delta": { "type": "string" },
+    "messageId": { "type": ["string", "null"] },
+    "intent": { "type": "string" },
+    "liveUsed": { "type": "boolean" },
+    "liveRequired": { "type": "boolean" },
+    "ttfbMs": { "type": ["number", "null"] },
+    "totalMs": { "type": "number" }
+  }
+}

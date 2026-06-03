@@ -7,19 +7,19 @@ const Ctx = createContext<ThemeCtx | null>(null);
 const STORAGE_KEY = "workmate.theme";
 
 function readStored(): Theme {
-  if (typeof window === "undefined") return "system";
+  if (typeof window === "undefined") return "light";
   const v = window.localStorage.getItem(STORAGE_KEY);
-  return v === "light" || v === "dark" || v === "system" ? v : "system";
+  return v === "light" || v === "dark" || v === "system" ? v : "light";
 }
 
 function systemTheme(): "light" | "dark" {
-  if (typeof window === "undefined") return "dark";
+  if (typeof window === "undefined") return "light";
   return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("system");
-  const [resolved, setResolved] = useState<"light" | "dark">("dark");
+  const [theme, setThemeState] = useState<Theme>("light");
+  const [resolved, setResolved] = useState<"light" | "dark">("light");
 
   useEffect(() => {
     setThemeState(readStored());

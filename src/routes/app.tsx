@@ -6,7 +6,6 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { AppTopbar } from "@/components/app-topbar";
 import { Loader2 } from "lucide-react";
 
-
 export const Route = createFileRoute("/app")({
   component: AppLayout,
 });
@@ -27,7 +26,7 @@ function AppLayout() {
       <div className="grid min-h-dvh place-items-center bg-background">
         <div className="flex items-center gap-3 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          <span className="font-mono text-xs uppercase tracking-widest">Authenticating session</span>
+          <span className="text-sm">Loading workspace</span>
         </div>
       </div>
     );
@@ -35,17 +34,18 @@ function AppLayout() {
 
   return (
     <TenantProvider>
-      <div className="flex min-h-dvh w-full bg-background">
-        <AppSidebar />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <AppTopbar />
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <Outlet />
+      <div className="min-h-dvh bg-[#f6f8fb] text-foreground dark:bg-background">
+        <div className="flex min-h-dvh w-full">
+          <AppSidebar />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <AppTopbar />
+            <div className="min-h-0 flex-1 overflow-hidden bg-[#f6f8fb] dark:bg-background">
+              <Outlet />
+            </div>
           </div>
         </div>
       </div>
     </TenantProvider>
-
   );
 }
 

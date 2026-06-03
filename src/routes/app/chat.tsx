@@ -11,7 +11,8 @@ import { MessageBubble, type ToolEvent } from "@/components/chat/message-bubble"
 import { ConversationItem } from "@/components/chat/conversation-item";
 import { ChatWelcome } from "@/components/chat/welcome";
 import { submitMemoryFeedback } from "@/lib/chat/feedback.functions";
-import type { MessageAttachment } from "@/lib/api/endpoints";
+import { getBrainRuntimeMode, streamBrainChat } from "@/lib/brain/client";
+import type { BrainDoneEvent, BrainRouteEvent, BrainVerificationEvent, MessageAttachment } from "@/lib/api/endpoints";
 
 
 
@@ -44,9 +45,11 @@ function ChatPage() {
   const [phase, setPhase] = useState<StreamPhase>("idle");
   const [liveTools, setLiveTools] = useState<ToolEvent[]>([]);
   const [liveSources, setLiveSources] = useState<string[]>([]);
-  // Map of assistant message id -> {memoryIds, sources} captured from the SSE `done` event.
-  // Used to attribute feedback to the memories that were actually surfaced.
-  const [responseMeta, setResponseMeta] = useState<Record<string, { memoryIds: string[]; sources: string[] }>>({});
+  const [streamRoute, setStreamRoute] = useState<BrainRouteEvent | null>(null);
+  const [streamVerification, setStreamVerification] = useState<BrainVerificationEvent | null>(null);
+  const brainRuntimeMode = getBrainRuntimeMode();
+  // Map of assistant message id -> surfaced trust metadata from the stream.
+  const [responseMeta, setResponseMeta] = useState<Record<string, { memoryIds: string[]; sources: string[]; route?: BrainRouteEvent | null; verification?: BrainVerificationEvent | null; model?: string | null }>>({});
   const [feedbackState, setFeedbackState] = useState<Record<string, "up" | "down">>({});
   // Local message overlay — optimistic user messages + assistant pin until DB persists.
   const [overlay, setOverlay] = useState<Record<string, Message[]>>({});
@@ -171,6 +174,8 @@ function ChatPage() {
     setPhase("thinking");
     setLiveTools([]);
     setLiveSources([]);
+    setStreamRoute(null);
+    setStreamVerification(null);
 
     const optimisticUserMsg: Message = {
       id: `temp-${Date.now()}`,
@@ -182,20 +187,81 @@ function ChatPage() {
     setOverlay((curr) => ({ ...curr, [convId!]: [...(curr[convId!] ?? []), optimisticUserMsg] }));
 
     let assembled = "";
-    let doneMeta: { messageId: string | null; memoryIds: string[] } | null = null;
+    let doneMeta: (BrainDoneEvent & { memoryIds: string[] }) | null = null;
     try {
       const history = [
         ...messages.map((m) => ({ role: m.role, content: m.content })),
         { role: "user" as const, content: text },
       ];
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ conversationId: convId, messages: history, attachments }),
+      const res = await streamBrainChat({
+        accessToken: session.access_token,
+        payload: { conversationId: convId, messages: history, attachments },
         signal: ac.signal,
+        onEvent: (j, envelope) => {
+          if (typeof envelope.requestId === "string") {
+            if (activeRequestIdRef.current && envelope.requestId !== activeRequestIdRef.current) {
+              return;
+            }
+            if (!activeRequestIdRef.current) activeRequestIdRef.current = envelope.requestId;
+          }
+          if (typeof envelope.seq === "number") {
+            if (envelope.seq <= lastSeqRef.current) return;
+            lastSeqRef.current = envelope.seq;
+          }
+
+          switch (j.type) {
+            case "state":
+              if (j.phase) setPhase(j.phase as StreamPhase);
+              break;
+            case "route":
+              setStreamRoute(j);
+              break;
+            case "verification":
+              setStreamVerification(j);
+              break;
+            case "tool": {
+              const evt: ToolEvent = { name: j.name, status: j.status };
+              if (evt.name === "web_search" && (evt.status === "running" || evt.status === "start")) setPhase("searching");
+              setLiveTools((curr) => {
+                const next = curr.filter((t) => t.name !== evt.name);
+                next.push(evt);
+                return next;
+              });
+              if (Array.isArray(j.sources) && j.sources.length) {
+                setLiveSources((curr) => Array.from(new Set([...curr, ...j.sources])));
+              }
+              break;
+            }
+            case "sources":
+              if (Array.isArray(j.sources)) {
+                setLiveSources((curr) => Array.from(new Set([...curr, ...j.sources])));
+              }
+              break;
+            case "memory":
+              break;
+            case "token":
+              if (j.delta) {
+                assembled += j.delta;
+                setStreamingText(assembled);
+                setPhase("streaming");
+              }
+              break;
+            case "done":
+              doneMeta = {
+                ...j,
+                memoryIds: Array.isArray((j as Record<string, unknown>).memoryIds)
+                  ? ((j as Record<string, unknown>).memoryIds as string[])
+                  : [],
+              };
+              break;
+            default:
+              if ("delta" in j && typeof j.delta === "string") {
+                assembled += j.delta;
+                setStreamingText(assembled);
+                setPhase("streaming");
+              }
+          }
+        },
       });
       if (!res.ok || !res.body) {
         const errText = await res.text().catch(() => "");
@@ -205,95 +271,11 @@ function ChatPage() {
         return;
       }
 
-      // Capture server-issued request id from the response header as a backup;
-      // the per-event envelope is the source of truth.
+      // Capture server-issued request id from the response header as a backup.
       const headerReqId = res.headers.get("X-Request-Id");
       if (headerReqId) activeRequestIdRef.current = headerReqId;
       if (res.headers.get("X-Chat-Live") === "1") setPhase("searching");
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        let idx;
-        while ((idx = buf.indexOf("\n\n")) !== -1) {
-          const block = buf.slice(0, idx); buf = buf.slice(idx + 2);
-          for (const line of block.split("\n")) {
-            if (!line.startsWith("data:")) continue;
-            const payload = line.slice(5).trim();
-            if (payload === "[DONE]") continue;
-            try {
-              const j = JSON.parse(payload);
-              // Envelope guard: drop stale or out-of-order events from aborted
-              // requests. The first envelope we see locks the activeRequestId.
-              if (typeof j.requestId === "string") {
-                if (activeRequestIdRef.current && j.requestId !== activeRequestIdRef.current) {
-                  continue;
-                }
-                if (!activeRequestIdRef.current) activeRequestIdRef.current = j.requestId;
-              }
-              if (typeof j.seq === "number") {
-                if (j.seq <= lastSeqRef.current) continue;
-                lastSeqRef.current = j.seq;
-              }
-
-              // Typed protocol: { type: "state"|"tool"|"sources"|"memory"|"token"|"done" }
-
-              switch (j.type) {
-                case "state":
-                  if (j.phase) setPhase(j.phase as StreamPhase);
-                  break;
-                case "tool": {
-                  const evt: ToolEvent = { name: j.name, status: j.status };
-                  if (evt.name === "web_search" && (evt.status === "running" || evt.status === "start")) setPhase("searching");
-
-                  setLiveTools((curr) => {
-                    const next = curr.filter((t) => t.name !== evt.name);
-                    next.push(evt);
-                    return next;
-                  });
-                  if (Array.isArray(j.sources) && j.sources.length) {
-                    setLiveSources((curr) => Array.from(new Set([...curr, ...j.sources])));
-                  }
-                  break;
-                }
-                case "sources":
-                  if (Array.isArray(j.sources)) {
-                    setLiveSources((curr) => Array.from(new Set([...curr, ...j.sources])));
-                  }
-                  break;
-                case "memory":
-                  // surfaced count is informational; ids are also delivered on `done`.
-                  break;
-                case "token":
-                  if (j.delta) {
-                    assembled += j.delta;
-                    setStreamingText(assembled);
-                    setPhase("streaming");
-                  }
-                  break;
-                case "done":
-                  doneMeta = {
-                    messageId: j.messageId ?? null,
-                    memoryIds: Array.isArray(j.memoryIds) ? j.memoryIds : [],
-                  };
-                  break;
-                default:
-                  // Legacy { delta } fallback for older builds.
-                  if (j.delta) {
-                    assembled += j.delta;
-                    setStreamingText(assembled);
-                    setPhase("streaming");
-                  }
-                  if (j.error) toast.error("Stream error");
-              }
-            } catch { /* keepalive */ }
-          }
-        }
-      }
 
 
     } catch (err) {
@@ -323,7 +305,7 @@ function ChatPage() {
         const meta = doneMeta;
         setResponseMeta((curr) => ({
           ...curr,
-          [meta.messageId!]: { memoryIds: meta.memoryIds, sources: liveSources },
+          [meta.messageId!]: { memoryIds: meta.memoryIds, sources: liveSources, route: streamRoute, verification: streamVerification, model: typeof meta.primaryModel === "string" ? meta.primaryModel : null },
         }));
       }
       if (abortRef.current === ac) abortRef.current = null;
@@ -332,7 +314,7 @@ function ChatPage() {
       setPhase("idle");
       setLiveTools([]);
 
-      // keep liveSources momentarily so they animate into the finalized bubble via responseMeta
+      // keep liveSources + trust state momentarily so they animate into the finalized bubble via responseMeta
       qc.invalidateQueries({ queryKey: ["messages", convId] });
       qc.invalidateQueries({ queryKey: ["conversations"] });
       setTimeout(() => {
@@ -521,6 +503,13 @@ function ChatPage() {
                     key={m.id}
                     message={m}
                     sources={m.role === "assistant" ? meta?.sources : undefined}
+                    brainMeta={m.role === "assistant" ? {
+                      agent: meta?.route?.primaryAgent,
+                      model: meta?.model ?? meta?.route?.primaryModel ?? undefined,
+                      verificationVerdict: meta?.verification?.verdict,
+                      verificationConfidence: meta?.verification?.confidence,
+                      runtimeMode: brainRuntimeMode,
+                    } : undefined}
                     feedback={m.role === "assistant" ? feedbackState[m.id] ?? null : undefined}
                     onFeedback={m.role === "assistant" && !m.id.startsWith("temp-")
                       ? (helpful) => handleFeedback(m.id, helpful)
@@ -537,6 +526,13 @@ function ChatPage() {
                   streaming
                   tools={liveTools}
                   sources={liveSources}
+                  brainMeta={{
+                    agent: streamRoute?.primaryAgent,
+                    model: streamRoute?.primaryModel,
+                    verificationVerdict: streamVerification?.verdict,
+                    verificationConfidence: streamVerification?.confidence,
+                    runtimeMode: brainRuntimeMode,
+                  }}
                   statusLabel={
                     phase === "searching" ? "Searching the web…"
                     : phase === "generating" ? "Generating answer…"
@@ -561,7 +557,7 @@ function ChatPage() {
   );
 }
 
-function ThreadHeader({ title, canRename, onRename, onOpenDrawer }: { title: string; canRename: boolean; onRename: (t: string) => void; onOpenDrawer?: () => void }) {
+function ThreadHeader({ title, canRename, onRename, onOpenDrawer, brainRuntimeMode }: { title: string; canRename: boolean; onRename: (t: string) => void; onOpenDrawer?: () => void; brainRuntimeMode: "external" | "internal" }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(title);
   useEffect(() => setDraft(title), [title]);
@@ -613,6 +609,8 @@ function ThreadHeader({ title, canRename, onRename, onOpenDrawer }: { title: str
         <ShieldCheck className="h-3 w-3 text-success" /> e2e audited
         <span className="mx-2 text-border">·</span>
         <Brain className="h-3 w-3 text-primary-glow" /> memory: on
+        <span className="mx-2 text-border">·</span>
+        <Sparkles className="h-3 w-3 text-primary-glow" /> brain: {brainRuntimeMode}
       </div>
     </div>
   );

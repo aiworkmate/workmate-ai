@@ -54,6 +54,21 @@ Open `http://127.0.0.1:8787`. The first registered account becomes an admin.
 
 The app runs without external packages. If `OPENAI_API_KEY` is configured, AI calls and image understanding run server-side through the provider abstraction. Without a key, the platform still works with local models.
 
+## Cloudflare runtime
+
+WorkMate is now wired for a GitHub-first Cloudflare deployment path.
+
+Use:
+
+```bash
+npm run build:cloudflare
+npm run preview:cloudflare
+npm run deploy:cloudflare
+```
+
+The build emits the deployable Wrangler config at `.output/server/wrangler.json`.
+See `docs/CLOUDFLARE_RUNTIME_MIGRATION.md` for the GitHub-to-Cloudflare setup.
+
 ## Development
 
 Run all packages in development mode:
