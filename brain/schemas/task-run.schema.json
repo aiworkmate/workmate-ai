@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TaskRun",
+  "type": "object",
+  "required": ["goal", "plan", "status"],
+  "properties": {
+    "goal": {"type": "string"},
+    "plan": {"type": "array", "items": {"type": "string"}},
+    "status": {"type": "string", "enum": ["planned", "executing", "blocked", "verifying", "completed", "failed"]},
+    "assigned_agent": {"type": ["string", "null"]},
+    "blockers": {"type": "array", "items": {"type": "string"}},
+    "verification_status": {"type": "string", "enum": ["unverified", "verified", "partially_verified", "contradicted"]},
+    "result_summary": {"type": ["string", "null"]}
+  }
+}

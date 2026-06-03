@@ -1,0 +1,4 @@
+[
+  {"query": "What product am I building?", "expected_memory_type": "user_or_project", "expected_concept": "AI operating system"},
+  {"query": "What matters most in the product UX?", "expected_memory_type": "project", "expected_concept": "memory, projects, routing, reliability"}
+]
