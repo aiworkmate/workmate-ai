@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
 
-type Mode = "signin" | "signup";
+type Mode = "signin" | "signup" | "reset";
 
 export function AuthDialog({
   open,
@@ -30,6 +30,16 @@ export function AuthDialog({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    if (mode === "reset") {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/app`,
+      });
+      setLoading(false);
+      if (error) return toast.error(error.message);
+      toast.success("Password reset link sent — check your inbox.");
+      setMode("signin");
+      return;
+    }
     if (mode === "signin") {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       setLoading(false);
@@ -38,7 +48,7 @@ export function AuthDialog({
       onOpenChange(false);
       navigate({ to: "/app", replace: true });
     } else {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -48,9 +58,13 @@ export function AuthDialog({
       });
       setLoading(false);
       if (error) return toast.error(error.message);
-      toast.success("Workspace ready — you're in.");
-      onOpenChange(false);
-      navigate({ to: "/app", replace: true });
+      if (data.session) {
+        toast.success("Workspace ready — you're in.");
+        onOpenChange(false);
+        navigate({ to: "/app", replace: true });
+      } else {
+        toast.success("Confirmation email sent — check your inbox to activate your account.");
+      }
     }
   }
 
@@ -66,49 +80,64 @@ export function AuthDialog({
             <div>
               <DialogHeader className="space-y-0">
                 <DialogTitle className="font-display text-lg">
-                  {mode === "signin" ? "Welcome back" : "Enter WorkMate"}
+                  {mode === "reset" ? "Reset password" : mode === "signin" ? "Welcome back" : "Enter WorkMate"}
                 </DialogTitle>
                 <DialogDescription className="text-xs">
-                  {mode === "signin" ? "Resume your AI session." : "Set up your workspace in seconds."}
+                  {mode === "reset" ? "We'll send you a link to reset your password." : mode === "signin" ? "Resume your AI session." : "Set up your workspace in seconds."}
                 </DialogDescription>
               </DialogHeader>
             </div>
           </div>
         </div>
 
-        <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)} className="px-6 pb-6 pt-4">
+        <Tabs value={mode === "reset" ? "signin" : mode} onValueChange={(v) => setMode(v as Mode)} className="px-6 pb-6 pt-4">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="signin">Sign in</TabsTrigger>
             <TabsTrigger value="signup">Create account</TabsTrigger>
           </TabsList>
 
           <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-            <TabsContent value="signup" className="m-0 space-y-4">
-              <Field id="name" label="Name">
-                <Input id="name" required={mode === "signup"} value={name} onChange={(e) => setName(e.target.value)} placeholder="Alex Morgan" />
-              </Field>
-            </TabsContent>
+            {mode !== "reset" && (
+              <TabsContent value="signup" className="m-0 space-y-4">
+                <Field id="name" label="Name">
+                  <Input id="name" required={mode === "signup"} value={name} onChange={(e) => setName(e.target.value)} placeholder="Alex Morgan" />
+                </Field>
+              </TabsContent>
+            )}
 
             <Field id="email" label="Email">
               <Input id="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" />
             </Field>
-            <Field id="password" label="Password">
-              <Input
-                id="password"
-                type="password"
-                required
-                minLength={mode === "signup" ? 8 : undefined}
-                autoComplete={mode === "signin" ? "current-password" : "new-password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-              />
-            </Field>
+            {mode !== "reset" && (
+              <Field id="password" label="Password">
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  minLength={mode === "signup" ? 8 : undefined}
+                  autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                />
+              </Field>
+            )}
+
+            {mode === "signin" && (
+              <button type="button" onClick={() => setMode("reset")} className="block w-full text-right text-xs text-muted-foreground hover:text-foreground transition">
+                Forgot password?
+              </button>
+            )}
 
             <Button type="submit" disabled={loading} className="h-11 w-full shadow-glow">
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              {mode === "signin" ? "Sign in" : "Create account"}
+              {mode === "reset" ? "Send reset link" : mode === "signin" ? "Sign in" : "Create account"}
             </Button>
+            {mode === "reset" && (
+              <button type="button" onClick={() => setMode("signin")} className="block w-full text-center text-xs text-muted-foreground hover:text-foreground transition">
+                Back to sign in
+              </button>
+            )}
             <p className="text-center text-[11px] text-muted-foreground">
               By continuing, you agree to our Terms & Privacy.
             </p>

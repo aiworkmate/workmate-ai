@@ -23,7 +23,7 @@ function SignupPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email, password,
       options: {
         emailRedirectTo: `${window.location.origin}/app`,
@@ -32,8 +32,12 @@ function SignupPage() {
     });
     setLoading(false);
     if (error) { toast.error(error.message); return; }
-    toast.success("Account created — you're signed in.");
-    navigate({ to: "/app", replace: true });
+    if (data.session) {
+      toast.success("Account created — you're signed in.");
+      navigate({ to: "/app", replace: true });
+    } else {
+      toast.success("Confirmation email sent — check your inbox to activate your account.");
+    }
   }
 
   return <AuthShell title="Create your workspace" subtitle="Provision a tenant in seconds.">
