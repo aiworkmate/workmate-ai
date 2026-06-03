@@ -18,7 +18,7 @@ WorkMate should run from GitHub to Cloudflare, with Supabase as the state layer.
 The current app already uses `@tanstack/react-start` with Nitro, and the Vite config notes Cloudflare as the default build target.
 The build emits a Cloudflare Wrangler config at:
 
-- `dist/server/wrangler.json`
+- `.output/server/wrangler.json`
 
 That means we do not need to invent a second runtime stack.
 We just need to deploy the existing runtime to Cloudflare deliberately.

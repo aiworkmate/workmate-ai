@@ -21,9 +21,9 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "build:cloudflare": "npm run build",
-    "deploy:cloudflare": "wrangler deploy --config dist/server/wrangler.json",
-    "preview:cloudflare": "wrangler dev --config dist/server/wrangler.json",
-    "check:cloudflare": "node -e \"const fs=require('fs'); const p='dist/server/wrangler.json'; if(!fs.existsSync(p)){console.error('Missing '+p+' \u2014 run npm run build first.'); process.exit(1)} console.log('Found '+p)\""
+    "deploy:cloudflare": "wrangler deploy --config .output/server/wrangler.json",
+    "preview:cloudflare": "wrangler dev --config .output/server/wrangler.json",
+    "check:cloudflare": "node -e \"const fs=require('fs'); const p='.output/server/wrangler.json'; if(!fs.existsSync(p)){console.error('Missing '+p+' \u2014 run npm run build:cloudflare first.'); process.exit(1)} console.log('Found '+p)\""
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

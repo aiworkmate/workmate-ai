@@ -66,7 +66,7 @@ npm run preview:cloudflare
 npm run deploy:cloudflare
 ```
 
-The build emits the deployable Wrangler config at `dist/server/wrangler.json`.
+The build emits the deployable Wrangler config at `.output/server/wrangler.json`.
 See `docs/CLOUDFLARE_RUNTIME_MIGRATION.md` for the GitHub-to-Cloudflare setup.
 
 ## Development

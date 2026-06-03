@@ -373,17 +373,13 @@ Tools recommended: ${frontierModelPlan.requiresTools ? "yes" : "no"}`);
           if (frontierContextBlock) contextBlocks.push(`Structured operating context:
 ${frontierContextBlock}`);
           if (frontierVerification) {
-            const evidence = frontierVerification.evidence.length ? `
-Evidence:
-- ${frontierVerification.evidence.join("
-- ")}` : "";
-            const gaps = frontierVerification.gaps.length ? `
-Gaps:
-- ${frontierVerification.gaps.join("
-- ")}` : "";
-            contextBlocks.push(`Verification preflight for the user's latest request:
-Verdict: ${frontierVerification.verdict}
-Confidence: ${frontierVerification.confidence}${evidence}${gaps}`);
+            const evidence = frontierVerification.evidence.length
+              ? `\nEvidence:\n- ${frontierVerification.evidence.join("\n- ")}`
+              : "";
+            const gaps = frontierVerification.gaps.length
+              ? `\nGaps:\n- ${frontierVerification.gaps.join("\n- ")}`
+              : "";
+            contextBlocks.push(`Verification preflight for the user's latest request:\nVerdict: ${frontierVerification.verdict}\nConfidence: ${frontierVerification.confidence}${evidence}${gaps}`);
           }
           if (live) {
             const srcs = live.sources.length ? `\nSources: ${live.sources.join(", ")}` : "";
