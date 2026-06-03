@@ -1,81 +1,86 @@
-## Reality check
 
-You asked for "do all" on 8 priorities across two codebases. I want to be honest: shipping every priority deeply in one turn would mean shallow work everywhere and a broken app. So this plan does the highest-leverage cut of V4 in one focused pass, and queues the rest as named follow-up passes you can trigger one-by-one.
+# WorkMate X — Full Overhaul Plan
 
-## Decision: one canonical app
+This spec is enormous (12+ entities, 8 product areas, 3-panel shell, mobile UX, trust/health systems). Shipping it well requires phasing — attempting it in one turn produces shallow, half-wired pages. Here's the sequenced plan.
 
-`packages/gpt-module/` already contains the real WorkMate app — full auth, RLS-backed Supabase schema (organizations, workspaces, conversations, messages, memories, uploads, response_outcomes, routing_stats), chat router, memory, uploads, workflows, medical, admin, analytics, audit routes. The root `src/routes/index.tsx` chat I built earlier is a toy compared to that.
+## Phase 1 — Backend foundation (1 migration, this turn after approval)
 
-**V4 = gpt-module is the app.** The root will redirect to it. No merge refactor — that would be a week of churn for zero user value.
+One Supabase migration adds the missing entities. Existing tables (`conversations`, `messages`, `memories`, `uploads`, `profiles`, `organizations`, `workspaces`, etc.) are **not** touched.
 
-## V4 Pass 1 (this turn) — backend intelligence + reliability
+New tables (all RLS-enabled, scoped to `auth.uid()` or workspace via existing `app_private` helpers):
 
-Scope kept tight on purpose. Files touched live under `packages/gpt-module/src/lib/chat/` and `src/routes/api/chat.ts`.
+- `projects` — name, description, color, status, workspace_id
+- `project_goals` — project_id, title, status, target_date
+- `project_milestones` — project_id, title, status, due_date
+- `project_decisions` — project_id, title, content, decided_at
+- `project_notes` — project_id, title, content
+- `tasks` — project_id, goal_id, title, description, status, priority, due_date, assigned_agent, plan (jsonb), blockers, result_summary, verification_status, retry_count, requires_approval, approved
+- `documents` — title, type, content, file_url, project_id, tags, is_pinned (links to existing `uploads` bucket)
+- `sources` — title, url, type, project_id, conversation_id, snippet, fetched_at, freshness_score, is_verified, tags
+- `agent_definitions` — agent_id, label, description, status, routing_keywords, total_invocations, avg_latency_ms, success_rate, last_used
+- `operational_knowledge` — title, content, category, source, project_id, agent_type, confidence, applied_count, is_active
+- `verification_logs` — claim, verdict, confidence, source, evidence, agent_type, conversation_id, project_id, verified_at
+- `tool_connections` — name, tool_type, status, description, last_used, invocation_count, config (jsonb)
+- `health_metrics` — metric_name, category, value, unit, status, recorded_at, notes
 
-1. **Router upgrade** (`router.server.ts`)
-   - Structured intent classification: `general | research | live | file_grounded | memory_recall | task_capture | medical`
-   - Live-data triggers: time/date words, "today/now/latest/price/news/weather/score/release", proper nouns + recency, explicit URLs
-   - Returns `{ intent, needsWeb, needsMemory, needsFiles, confidence, reason }`
+Additions to existing `memories`:
+- `layer` enum (working|session|project|user|knowledge|archive)
+- `project_id` (nullable fk)
+- `importance` (real)
+- `verified` (bool)
+- `source` (text)
+- `tags` (text[])
 
-2. **Live data: Tavily + SerpAPI fallback** (`web-search.server.ts`)
-   - Tavily primary (already keyed). On 4xx/5xx/timeout → SerpAPI fallback (key present).
-   - 8s timeout, 2 retries with jitter, results normalized to `{title, url, snippet, published_at}`.
-   - Cached in-memory per query for 5 min.
+Seed: 10 `agent_definitions` rows (CEO, Research, Coding, Business, Marketing, Finance, Legal, Medical, PM, Travel).
 
-3. **Memory intelligence** (`memory.server.ts`)
-   - Typed memory kinds: `goal | project | task | preference | decision | fact`
-   - Write path: post-turn extractor (small model, tool-calling) saves only high-confidence items; dedupe by cosine similarity on existing user memories.
-   - Read path: hybrid retrieval (kind filter + embedding + recency + pin) → top 6, capped tokens.
+## Phase 2 — App shell + 3-panel layout (this turn)
 
-4. **Long-conversation stability** (`model.server.ts`)
-   - Rolling window: keep last N turns verbatim, summarize older turns into a compact "conversation brief" stored on `conversations.summary`.
-   - Hard token budget per request with deterministic truncation order: system → brief → memory → tools → recent turns → current message.
+- Rebuild `AppSidebar` with new IA: Chats, Projects, Agents, Memory, Files, Settings (+ collapsible Insights/Admin).
+- New `RightOperatingPanel` component: context-aware, shows active project, memory hits, sources, verification, tasks, routing/agent, health badges.
+- `app.tsx` becomes a 3-pane responsive grid (sidebar | center | right panel). Right panel collapses to a sheet on mobile (<1024px). Sidebar collapses to icons on tablet, drawer on mobile.
+- Mobile composer becomes sticky/floating.
 
-5. **Anti-hallucination + recovery** (`safe.server.ts`)
-   - When `needsWeb` and web tools all fail: model is told explicitly "live data unavailable" and instructed not to invent current facts.
-   - All tool failures recorded to `response_outcomes` with `was_fallback=true`.
-   - Streaming endpoint catches mid-stream errors and emits a clean SSE `error` event instead of dying silently.
+## Phase 3 — New pages (this turn)
 
-6. **Observability**
-   - Every turn writes `response_outcomes` (intent, live_used, memory_hits, latency_ms, chars, was_fallback) and updates `routing_stats`. Already-existing tables, currently underused.
+- `/app/projects` — grid of project cards (color, status, progress, task count).
+- `/app/projects/$id` — workspace with tabs: Overview, Goals, Milestones, Tasks, Notes, Decisions, Files, Memory, Sources, Timeline.
+- `/app/agents` — directory of specialist agents with usage stats.
+- `/app/sources` — source explorer with freshness/verification filters.
+- `/app/tools` — tool connection cards (search, docs, email, calendar, CRM, GitHub, storage) with status.
+- `/app/health` — system health dashboard (memory_quality, context_quality, response_quality, search_success, hallucination_risk, latency, routing_quality).
+- `/app/verification` — verification log explorer.
 
-## V4 Pass 1 (this turn) — UI
+## Phase 4 — Refresh existing pages (this turn)
 
-1. **Mobile-first chat shell** (`routes/app/chat.tsx`, `components/chat/*`)
-   - Bottom-anchored composer with safe-area padding, swipe-to-open conversation drawer, sticky message header, on-scroll auto-stick.
-   - Streaming token rendering already in place; add typing indicator + cancel button + retry-last-turn button.
+- `/app/memory` → Memory Center: layer tabs, confidence/verification badges, source pills, project linkage, pin/archive.
+- `/app/chat` → integrate right operating panel with live context (project, memory hits, sources, agent, verification).
+- `/app/uploads` → renamed Files, dual view (uploads + documents).
 
-2. **Desktop workspace polish** (`components/app-sidebar.tsx`, `app-topbar.tsx`)
-   - 3-pane layout on ≥lg: conversations | chat | context panel (memory hits, sources, files used for this turn).
-   - Command palette (⌘K) for: new chat, switch workspace, jump to memory, jump to uploads.
+## Phase 5 — Trust & polish (this turn)
 
-3. **Root → app redirect**
-   - `src/routes/index.tsx` becomes a thin redirect to the gpt-module app entry, so the preview URL lands on the real product.
+- Shared trust primitives: `<ConfidenceBadge>`, `<VerificationBadge>`, `<SourcePill>`, `<FreshnessIndicator>`, `<AgentChip>`.
+- Empty states for every new page tied to seeded sample CTAs.
+- Mobile: no horizontal scroll, 44px touch targets, sheet-based right panel.
 
-## Explicitly NOT in this pass (queued for follow-ups)
+## What I will NOT change
 
-I will not pretend to ship these in one turn. Ask for any of them next and I'll do a focused pass:
+- Auth flow, Supabase client wiring, RLS helpers
+- Existing chat pipeline (`router.server.ts`, `model.server.ts`, `memory.server.ts`, etc.)
+- Existing tables' columns (only additive changes to `memories`)
+- Edge functions, server function signatures called by the chat UI
 
-- **Pass 2 — Files & docs intelligence:** OCR pipeline, image understanding, chunked embeddings, grounded citations in answers.
-- **Pass 3 — Dashboards & analytics:** real charts on `response_outcomes` + `routing_stats`, per-workspace usage, cost estimation.
-- **Pass 4 — Projects & tasks surfaces:** UI for the goal/project/task memory kinds (kanban + list).
-- **Pass 5 — Stress testing & load harness:** scripted concurrent-user simulation, failure-injection, p95 latency tracking.
-- **Pass 6 — Security hardening review:** RLS audit, rate limiting on `/api/chat`, prompt-injection defenses on web/tool results.
+## Technical approach
 
-## Technical notes
+- Frontend reads new tables via `createServerFn` + `requireSupabaseAuth` (matches existing pattern in `src/lib/chat/*.functions.ts` or new `src/lib/projects.functions.ts` etc.).
+- New entities have minimal write surfaces this round (create/list/update status); deep editors can come in a follow-up turn.
+- Mock/sample data only as empty-state illustrations — real data comes from the new tables.
 
-- Lovable AI Gateway stays the model provider. Default chat model: `google/gemini-3-flash-preview`. Heavy reasoning paths use `openai/gpt-5.2`. Extraction/classification uses `google/gemini-2.5-flash-lite` with tool-calling for structured output.
-- Tavily + SerpAPI secrets already configured.
-- All new server code lives in `*.server.ts` (server-only) or `*.functions.ts` (callable from client), per TanStack import-graph rules.
-- No DB migrations needed for Pass 1 — schema already supports everything above.
-- No new dependencies.
+## Sequence of execution after approval
 
-## What you'll see after this pass
+1. Submit the single Supabase migration (Phase 1) → wait for your approval.
+2. Once migration runs, regenerate types are automatic; then implement Phases 2–5 across multiple file edits.
+3. Verify build passes and report.
 
-- Open the preview → land directly in the real WorkMate app (login if needed).
-- Chat feels stable on phone, premium on desktop, with visible "Sources" / "Memory used" context.
-- "What's the weather in Paris today?" actually hits Tavily; if Tavily is down, SerpAPI; if both down, the assistant says so instead of making it up.
-- Long chats don't blow the context window — older turns get summarized into a brief.
-- Every turn is logged for the analytics pass.
+**This will be a large multi-file change.** I will not silently truncate scope — if something needs to slip to a follow-up turn (e.g. deep task editor, workflow execution visualization), I'll call it out explicitly at the end.
 
-Approve and I'll execute Pass 1. Reject and tell me which single priority to start with instead — I'd rather do one priority excellently than eight badly.
+Approve to proceed with the Phase 1 migration.
