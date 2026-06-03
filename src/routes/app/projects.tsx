@@ -12,7 +12,8 @@ export const Route = createFileRoute("/app/projects")({
   component: ProjectsPage,
 });
 
-const COLORS = ["violet","sky","emerald","amber","rose","cyan","indigo","lime"];
+const COLORS = ["violet","sky","emerald","amber","rose","cyan","indigo","lime"] as const;
+const HUE: Record<string, number> = { violet:300, sky:240, emerald:160, amber:80, rose:20, cyan:200, indigo:280, lime:130 };
 
 function ProjectsPage() {
   const { user } = useAuth();
