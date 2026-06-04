@@ -14,6 +14,7 @@ function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resetMode, setResetMode] = useState(false);
   const { session } = useAuth();
   const navigate = useNavigate();
 
@@ -22,11 +23,39 @@ function LoginPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    if (resetMode) {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/app`,
+      });
+      setLoading(false);
+      if (error) { toast.error(error.message); return; }
+      toast.success("Password reset link sent \u2014 check your inbox.");
+      setResetMode(false);
+      return;
+    }
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Welcome back");
     navigate({ to: "/app", replace: true });
+  }
+
+  if (resetMode) {
+    return <AuthShell title="Reset password" subtitle="We'll send you a link to reset your password.">
+      <form onSubmit={onSubmit} className="space-y-4">
+        <Field label="Work email">
+          <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)}
+            className="w-full rounded-md border border-input bg-background/40 px-3 py-2.5 text-sm outline-none ring-ring/30 transition focus:ring-2" />
+        </Field>
+        <button type="submit" disabled={loading} className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-glow transition hover:opacity-90 disabled:opacity-50">
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          Send reset link
+        </button>
+        <p className="text-center text-xs text-muted-foreground">
+          <button type="button" onClick={() => setResetMode(false)} className="text-primary-glow hover:underline">Back to sign in</button>
+        </p>
+      </form>
+    </AuthShell>;
   }
 
   return <AuthShell title="Sign in" subtitle="Access your AI WorkMate workspace.">
@@ -39,6 +68,11 @@ function LoginPage() {
         <input type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)}
           className="w-full rounded-md border border-input bg-background/40 px-3 py-2.5 text-sm outline-none ring-ring/30 transition focus:ring-2" />
       </Field>
+      <div className="text-right">
+        <button type="button" onClick={() => setResetMode(true)} className="text-xs text-muted-foreground hover:text-foreground transition">
+          Forgot password?
+        </button>
+      </div>
       <button type="submit" disabled={loading} className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-glow transition hover:opacity-90 disabled:opacity-50">
         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
         Sign in
