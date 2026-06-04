@@ -14,7 +14,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 export const KEEP_RECENT = 12;
 export const SUMMARIZE_THRESHOLD = 16;
 
-const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const GATEWAY_URL = "https://api.openai.com/v1/chat/completions";
 const SUMMARY_MODEL = "google/gemini-2.5-flash-lite";
 const SUMMARY_TIMEOUT_MS = 8000;
 

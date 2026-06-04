@@ -269,7 +269,7 @@ export const Route = createFileRoute("/api/chat")({
             return gracefulStream(reqId, "This conversation is no longer available.", "conv_unavailable");
           }
 
-          const apiKey = process.env.LOVABLE_API_KEY;
+          const apiKey = process.env.OPENAI_API_KEY;
           if (!apiKey) {
             log(reqId, "llm.request", "error", { reason: "missing_api_key" });
             return gracefulStream(reqId, "The AI service is temporarily unavailable. Please try again shortly.", "no_api_key");
